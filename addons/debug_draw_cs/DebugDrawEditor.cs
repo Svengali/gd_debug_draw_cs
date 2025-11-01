@@ -1,150 +1,119 @@
+// FILE: debug_draw_cs/DebugDrawEditor.cs
 #if TOOLS
 using Godot;
 using System;
 
 [Tool]
-public class DebugDrawEditor : EditorPlugin
+public partial class DebugDrawEditor : EditorPlugin
 {
     public static string PluginDir = "res://addons/debug_draw_cs/";
 
-    ViewportContainer spatial_viewport = null;
+	Control spatial_editor_viewport = null;
 
-    public override void _EnterTree()
-    {
-        CreateAutoFind();
+	public override void _EnterTree()
+	{
+		CreateAutoFind();
 
-        if (!IsConnected("scene_changed", this, nameof(OnSceneChanged)))
-            Connect("scene_changed", this, nameof(OnSceneChanged));
-    }
+		if (!IsConnected(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged)))
+			Connect(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged));
+	}
 
-    public override void _ExitTree()
+	public override void _ExitTree()
+	{
+		RemovePrevNode();
+
+		if (IsConnected(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged)))
+			Disconnect(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged));
+	}
+		
+
+
+    public override void _DisablePlugin()
     {
         RemovePrevNode();
-
-        if (IsConnected("scene_changed", this, nameof(OnSceneChanged)))
-            Disconnect("scene_changed", this, nameof(OnSceneChanged));
     }
 
-    public override void DisablePlugin()
-    {
-        RemovePrevNode();
-    }
-
-    public override void _Process(float delta)
+    public override void _Process(double delta)
     {
         // Dirty workaround for reloading of DebugDraw after project rebuild
         CreateAutoFind();
     }
 
-    void OnSceneChanged(Node node)
-    {
-        if (node == null) return;
+    void OnSceneChanged()
+	{
+		var node = GetTree().CurrentScene;
 
         CreateNewNode(node);
     }
 
-    #region Utilities
+	#region Utilities
 
-    // HACK for finding canvas and drawing on it
-    // Hardcoded for 3.2.4
-    void FindViewportControl()
-    {
-        // Create temp control to get spatial viewport
-        Control ctrl = new Control();
-        AddControlToContainer(CustomControlContainer.SpatialEditorMenu, ctrl);
+	void FindViewportControl()
+	{
+		// This gets the Node3DEditorViewport, which is a Control
+		spatial_editor_viewport = EditorInterface.Singleton.GetEditorMainScreen();
 
-        // Try to get main viewport node. Must be `SpatialEditor`
-        Control spatial_editor = ctrl.GetParent().GetParent<Control>();
+		if (spatial_editor_viewport != null)
+		{
+			spatial_editor_viewport.SetMeta("UseParentSize", true);
+			spatial_editor_viewport.QueueRedraw();
+		}
+	}
 
-        // Remove and destroy temp control
-        RemoveControlFromContainer(CustomControlContainer.SpatialEditorMenu, ctrl);
-        ctrl.QueueFree();
 
-        spatial_viewport = null;
-        if (spatial_editor.GetClass() == "SpatialEditor")
-        {
-            // Try to recursively find `SpatialEditorViewport`
-            Func<Control, int, Control> get = null;
-            get = (c, level) =>
-            {
-                if (c.GetClass() == "SpatialEditorViewport")
-                    return c;
+	void RemovePrevNode()
+	{
+		DebugDraw.Instance?.QueueFree();
+		spatial_editor_viewport?.QueueRedraw();
 
-                // 4 Levels must be enough for 3.2.4
-                if (level < 4)
-                {
-                    foreach (var o in c.GetChildren())
-                    {
-                        if (o is Control ch)
-                        {
-                            var res = get(ch, level + 1);
-                            if (res != null)
-                                return res;
-                        }
-                    }
-                }
+		var root = EditorInterface.Singleton?.GetEditedSceneRoot();
+		if (root != null)
+		{
+			if (root != null)
+			{
+				var nodes = root.GetChildren();
+				foreach (Node n in nodes)
+				{
+					if (n.Owner == null && n.HasMeta(nameof(DebugDraw)) && !n.IsQueuedForDeletion())
+					{
+						n.QueueFree();
+					}
+				}
+			}
+		}
+	}
 
-                return null;
-            };
+	void CreateNewNode(Node parent)
+	{
+		RemovePrevNode();
+		if (DebugDraw.Instance == null)
+		{
+			FindViewportControl();
+			if (spatial_editor_viewport == null)
+			{
+				GD.PushWarning("DebugDrawEditor: Could not find 3D editor viewport.");
+				return;
+			}
 
-            spatial_viewport = get(spatial_editor, 0)?.GetChild<ViewportContainer>(0);
-        }
+			var d = new DebugDraw();
+			parent.AddChild(d);
 
-        if (spatial_viewport != null)
-        {
-            spatial_viewport.SetMeta("UseParentSize", true);
-            spatial_viewport.Update();
-        }
-    }
+			DebugDraw.CustomViewport = spatial_editor_viewport.GetViewport();
+			DebugDraw.CustomCanvas = spatial_editor_viewport;
+		}
+	}
 
-    void RemovePrevNode()
-    {
-        DebugDraw.Instance?.QueueFree();
-        spatial_viewport?.Update();
 
-        SceneTree tree = Engine.GetMainLoop() as SceneTree;
-        if (tree != null)
-        {
-            var root = tree.EditedSceneRoot;
-            if (root != null)
-            {
-                var nodes = root.GetChildren();
-                foreach (Node n in nodes)
-                {
-                    if (n.Owner == null && n.HasMeta(nameof(DebugDraw)) && !n.IsQueuedForDeletion())
-                    {
-                        n.QueueFree();
-                    }
-                }
-            }
-        }
-    }
-
-    void CreateNewNode(Node parent)
-    {
-        RemovePrevNode();
-        if (DebugDraw.Instance == null)
-        {
-            FindViewportControl();
-
-            var d = new DebugDraw();
-            parent.AddChild(d);
-
-            DebugDraw.CustomViewport = spatial_viewport.GetChild<Viewport>(0);
-            DebugDraw.CustomCanvas = spatial_viewport;
-        }
-    }
-
-    void CreateAutoFind()
-    {
-        if (DebugDraw.Instance == null)
-        {
-            Node node = (Engine.GetMainLoop() as SceneTree)?.EditedSceneRoot;
-            if (node != null)
-                CreateNewNode(node);
-        }
-    }
-
-    #endregion
+	void CreateAutoFind()
+	{
+		if (DebugDraw.Instance == null)
+		{
+			Node node = EditorInterface.Singleton?.GetEditedSceneRoot();
+			if (node != null)
+				CreateNewNode(node);
+		}
+	}
+		
+		    #endregion
 }
 #endif
