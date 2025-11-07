@@ -20,7 +20,7 @@ using GDArray = Godot.Collections.Array; // This alias is kept for the one remai
 /// "Game Camera Override" is not supports, because no one in the Godot Core Team 
 /// exposes methods to support this (but you can just disable culling see <see cref="UseFrustumCulling"/>).
 /// </summary>
-public partial class DebugDraw : Node
+public partial class DebugDraw : Node2D
 {
     public enum BlockPosition
     {
@@ -235,6 +235,9 @@ public partial class DebugDraw : Node
 
     public DebugDraw()
     {
+        GD.PrintRich($"DD: {GetType().Name}" );
+
+
         if (instance == null)
             instance = this;
         else
@@ -288,11 +291,11 @@ public partial class DebugDraw : Node
 #endif
 
 #pragma warning disable CA1822 // Mark members as static
-    public void OnCanvaItemDraw(CanvasItem ci)
+    public void OnCanvasItemDraw()
 #pragma warning restore CA1822 // Mark members as static
     {
 #if DEBUG
-        internalInstance?.OnCanvaItemDraw(ci);
+        internalInstance?.OnCanvasItemDraw();
 #endif
     }
 

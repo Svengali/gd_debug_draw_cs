@@ -10,7 +10,7 @@ using GDArray = Godot.Collections.Array; // Keep alias for Obsolete method
 
 namespace DebugDrawInternalFunctionality
 {
-	class FPSGraph
+	partial class FPSGraph : Node2D
 	{
 		float[] frameTimes = new float[1];
 		int position = 0;
@@ -39,7 +39,7 @@ namespace DebugDrawInternalFunctionality
 			}
 		}
 
-		public void Draw(CanvasItem ci, Font font, Vector2 viewportSize)
+		public void Draw(Font font, Vector2 viewportSize)
 		{
 			var notZero = frameTimes.Where((f) => f > 0f).Select((f) => DebugDraw.FPSGraphFrameTimeMode ? f * 1000 : 1f / f).ToArray();
 
@@ -81,19 +81,19 @@ namespace DebugDrawInternalFunctionality
 			var border_size = new Rect2(pos + Vector2.Up, graphSize + Vector2.Down);
 
 			// Draw background
-			ci.DrawRect(border_size, DebugDraw.FPSGraphBackgroundColor, true);
+			DrawRect(border_size, DebugDraw.FPSGraphBackgroundColor, true);
 
 			// Draw framerate graph
 			for (int i = 1; i < filled; i++)
 			{
 				var idx = Mathf.PosMod(start + i, notZero.Length);
 				var v = pos + new Vector2(i, (int)get_y_pos(idx));
-				ci.DrawLine(v, prev, DebugDraw.FPSGraphLineColor);
+				DrawLine(v, prev, DebugDraw.FPSGraphLineColor);
 				prev = v;
 			}
 
 			// Draw border
-			ci.DrawRect(border_size, DebugDraw.FPSGraphBorderColor, false);
+			DrawRect(border_size, DebugDraw.FPSGraphBorderColor, false);
 
 			// Draw text
 			var suffix = (DebugDraw.FPSGraphFrameTimeMode ? "ms" : "fps");
@@ -106,19 +106,19 @@ namespace DebugDrawInternalFunctionality
 			var cur_size = font.GetStringSize(cur_text);
 
 			if ((DebugDraw.FPSGraphShowTextFlags & DebugDraw.FPSGraphTextFlags.Max) == DebugDraw.FPSGraphTextFlags.Max)
-				ci.DrawString(font, pos + new Vector2(4, max_height - 1),
+				DrawString(font, pos + new Vector2(4, max_height - 1),
 						cur_text, modulate: DebugDraw.FPSGraphTextColor);
 
 			if ((DebugDraw.FPSGraphShowTextFlags & DebugDraw.FPSGraphTextFlags.Avarage) == DebugDraw.FPSGraphTextFlags.Avarage)
-				ci.DrawString(font, pos + new Vector2(4, graphSize.Y * 0.5f + avg_height * 0.5f - 2),
+				DrawString(font, pos + new Vector2(4, graphSize.Y * 0.5f + avg_height * 0.5f - 2),
 						cur_text, modulate: DebugDraw.FPSGraphTextColor);
 
 			if ((DebugDraw.FPSGraphShowTextFlags & DebugDraw.FPSGraphTextFlags.Min) == DebugDraw.FPSGraphTextFlags.Min)
-				ci.DrawString(font, pos + new Vector2(4, graphSize.Y - 3),
+				DrawString(font, pos + new Vector2(4, graphSize.Y - 3),
 						cur_text, modulate: DebugDraw.FPSGraphTextColor);
 
 			if ((DebugDraw.FPSGraphShowTextFlags & DebugDraw.FPSGraphTextFlags.Current) == DebugDraw.FPSGraphTextFlags.Current)
-				ci.DrawString(font, pos + new Vector2(graphSize.X - cur_size.X, graphSize.Y * 0.5f + cur_size.Y * 0.5f - 2),
+				DrawString(font, pos + new Vector2(graphSize.X - cur_size.X, graphSize.Y * 0.5f + cur_size.Y * 0.5f - 2),
 						cur_text, modulate: DebugDraw.FPSGraphTextColor);
 		}
 	}
@@ -308,7 +308,7 @@ namespace DebugDrawInternalFunctionality
 	}
 
 
-	class DebugDrawImplementation : IDisposable
+	partial class DebugDrawImplementation : Node2D
 	{
 		// 2D
 
@@ -347,7 +347,7 @@ namespace DebugDrawInternalFunctionality
 			get => _customCanvas;
 			set
 			{
-				var callable = Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw);
+				var callable = Callable.From( debugDraw.OnCanvasItemDraw );
 				var connected_internal = CanvasItemInternal.IsConnected(CanvasItem.SignalName.Draw, callable);
 				var connected_custom = _customCanvas != null && _customCanvas.IsConnected(CanvasItem.SignalName.Draw, callable);
 
@@ -372,6 +372,8 @@ namespace DebugDrawInternalFunctionality
 		public DebugDrawImplementation(DebugDraw dd)
 		{
 			debugDraw = dd;
+
+			GD.PrintRich($"DD: {GetType().Name}" );
 
 			_poolWiredRenderers = new ObjectPool<DelayedRendererLine>(() => new DelayedRendererLine());
 			_poolInstanceRenderers = new ObjectPool<DelayedRendererInstance>(() => new DelayedRendererInstance());
@@ -419,7 +421,10 @@ namespace DebugDrawInternalFunctionality
 			CanvasItemInternal = new Node2D();
 
 			if (CustomCanvas == null)
-				CanvasItemInternal.Connect(CanvasItem.SignalName.Draw, Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw), (uint)Node.ConnectFlags.ReferenceCounted);
+			{
+				var callable = Callable.From(debugDraw.OnCanvasItemDraw);
+				CanvasItemInternal.Connect(CanvasItem.SignalName.Draw, callable, (uint)Node.ConnectFlags.ReferenceCounted);
+			}
 
 			debugDraw.AddChild(_canvasLayer);
 			_canvasLayer.AddChild(CanvasItemInternal);
@@ -442,10 +447,10 @@ namespace DebugDrawInternalFunctionality
 
 			_font = null; // Fonts are usually resources, not Disposed manually unless loaded
 
-			if (CanvasItemInternal != null && CanvasItemInternal.IsConnected(CanvasItem.SignalName.Draw, Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw)))
-				CanvasItemInternal.Disconnect(CanvasItem.SignalName.Draw, Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw));
-			if (_customCanvas != null && _customCanvas.IsConnected(CanvasItem.SignalName.Draw, Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw)))
-				_customCanvas.Disconnect(CanvasItem.SignalName.Draw, Callable.From<CanvasItem>(debugDraw.OnCanvaItemDraw));
+			if (CanvasItemInternal != null && CanvasItemInternal.IsConnected(CanvasItem.SignalName.Draw, Callable.From(debugDraw.OnCanvasItemDraw)))
+				CanvasItemInternal.Disconnect(CanvasItem.SignalName.Draw, Callable.From(debugDraw.OnCanvasItemDraw));
+			if (_customCanvas != null && _customCanvas.IsConnected(CanvasItem.SignalName.Draw, Callable.From(debugDraw.OnCanvasItemDraw)))
+				_customCanvas.Disconnect(CanvasItem.SignalName.Draw, Callable.From(debugDraw.OnCanvasItemDraw));
 
 			CanvasItemInternal?.QueueFree();
 			CanvasItemInternal = null;
@@ -571,13 +576,13 @@ namespace DebugDrawInternalFunctionality
 			}
 		}
 
-		public void OnCanvaItemDraw(CanvasItem ci)
+		public void OnCanvasItemDraw()
 		{
 			if (!DebugDraw.DebugEnabled)
 				return;
 
 			var time = DateTime.Now;
-			Vector2 vp_size = ci.HasMeta("UseParentSize") ? ci.GetParent<Control>().Size : ci.GetViewportRect().Size;
+			Vector2 vp_size = HasMeta("UseParentSize") ? GetParent<Control>().Size : GetViewportRect().Size;
 
 			lock (dataLock)
 			{ // Text drawing
@@ -627,7 +632,7 @@ namespace DebugDrawInternalFunctionality
 						var text = t.Value?.Text == null ? keyText : $"{keyText}{separator}{t.Value.Text}";
 						var size = _font.GetStringSize(text);
 						float size_right_revert = (size.X + DebugDraw.TextPadding.X * 2) * size_mul;
-						ci.DrawRect(
+						DrawRect(
 								new Rect2(new Vector2(pos.X + size_right_revert, pos.Y),
 								new Vector2(size.X + DebugDraw.TextPadding.X * 2, line_height)),
 								DebugDraw.TextBackgroundColor);
@@ -635,16 +640,16 @@ namespace DebugDrawInternalFunctionality
 						// Draw colored string
 						if (t.Value == null || t.Value.ValueColor == null || t.Value.Text == null)
 						{
-							ci.DrawString(_font, new Vector2(pos.X + font_offset.X + size_right_revert, pos.Y + font_offset.Y), text, modulate: g.GroupColor);
+							DrawString(_font, new Vector2(pos.X + font_offset.X + size_right_revert, pos.Y + font_offset.Y), text, modulate: g.GroupColor);
 						}
 						else
 						{
 							var textSep = $"{keyText}{separator}";
 							var _keyLength = textSep.Length;
-							ci.DrawString(_font,
+							DrawString(_font,
 									new Vector2(pos.X + font_offset.X + size_right_revert, pos.Y + font_offset.Y),
 									text.Substring(0, _keyLength), modulate: g.GroupColor);
-							ci.DrawString(_font,
+							DrawString(_font,
 									new Vector2(pos.X + font_offset.X + size_right_revert + _font.GetStringSize(textSep).X, pos.Y + font_offset.Y),
 									text.Substring(_keyLength), modulate: t.Value.ValueColor.Value);
 						}
@@ -654,7 +659,7 @@ namespace DebugDrawInternalFunctionality
 			}
 
 			if (DebugDraw.FPSGraphEnabled)
-				fpsGraph.Draw(ci, _font, vp_size);
+				fpsGraph.Draw( _font, vp_size);
 		}
 
 		void UpdateCanvas()

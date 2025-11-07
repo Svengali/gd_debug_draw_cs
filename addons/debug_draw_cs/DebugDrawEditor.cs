@@ -10,6 +10,12 @@ public partial class DebugDrawEditor : EditorPlugin
 
 	Control spatial_editor_viewport = null;
 
+	public DebugDrawEditor()
+	{
+		GD.PrintRich($"DD: {GetType().Name}" );
+
+	}
+
 	public override void _EnterTree()
 	{
 		CreateAutoFind();
