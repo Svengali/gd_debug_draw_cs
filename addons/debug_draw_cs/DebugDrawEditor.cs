@@ -6,13 +6,13 @@ using System;
 [Tool]
 public partial class DebugDrawEditor : EditorPlugin
 {
-    public static string PluginDir = "res://addons/debug_draw_cs/";
+	public static string PluginDir = "res://addons/debug_draw_cs/";
 
 	Control spatial_editor_viewport = null;
 
 	public DebugDrawEditor()
 	{
-		GD.PrintRich($"DD: {GetType().Name}" );
+		GD.PrintRich( $"DD: {GetType().Name}" );
 
 	}
 
@@ -20,37 +20,37 @@ public partial class DebugDrawEditor : EditorPlugin
 	{
 		CreateAutoFind();
 
-		if (!IsConnected(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged)))
-			Connect(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged));
+		if( !IsConnected( EditorPlugin.SignalName.SceneChanged, Callable.From( OnSceneChanged ) ) )
+			Connect( EditorPlugin.SignalName.SceneChanged, Callable.From( OnSceneChanged ) );
 	}
 
 	public override void _ExitTree()
 	{
 		RemovePrevNode();
 
-		if (IsConnected(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged)))
-			Disconnect(EditorPlugin.SignalName.SceneChanged, Callable.From(OnSceneChanged));
+		if( IsConnected( EditorPlugin.SignalName.SceneChanged, Callable.From( OnSceneChanged ) ) )
+			Disconnect( EditorPlugin.SignalName.SceneChanged, Callable.From( OnSceneChanged ) );
 	}
-		
 
 
-    public override void _DisablePlugin()
-    {
-        RemovePrevNode();
-    }
 
-    public override void _Process(double delta)
-    {
-        // Dirty workaround for reloading of DebugDraw after project rebuild
-        CreateAutoFind();
-    }
+	public override void _DisablePlugin()
+	{
+		RemovePrevNode();
+	}
 
-    void OnSceneChanged()
+	public override void _Process( double delta )
+	{
+		// Dirty workaround for reloading of DebugDraw after project rebuild
+		CreateAutoFind();
+	}
+
+	void OnSceneChanged()
 	{
 		var node = GetTree().CurrentScene;
 
-        CreateNewNode(node);
-    }
+		CreateNewNode( node );
+	}
 
 	#region Utilities
 
@@ -59,9 +59,9 @@ public partial class DebugDrawEditor : EditorPlugin
 		// This gets the Node3DEditorViewport, which is a Control
 		spatial_editor_viewport = EditorInterface.Singleton.GetEditorMainScreen();
 
-		if (spatial_editor_viewport != null)
+		if( spatial_editor_viewport != null )
 		{
-			spatial_editor_viewport.SetMeta("UseParentSize", true);
+			spatial_editor_viewport.SetMeta( "UseParentSize", true );
 			spatial_editor_viewport.QueueRedraw();
 		}
 	}
@@ -73,14 +73,14 @@ public partial class DebugDrawEditor : EditorPlugin
 		spatial_editor_viewport?.QueueRedraw();
 
 		var root = EditorInterface.Singleton?.GetEditedSceneRoot();
-		if (root != null)
+		if( root != null )
 		{
-			if (root != null)
+			if( root != null )
 			{
 				var nodes = root.GetChildren();
-				foreach (Node n in nodes)
+				foreach( Node n in nodes )
 				{
-					if (n.Owner == null && n.HasMeta(nameof(DebugDraw)) && !n.IsQueuedForDeletion())
+					if( n.Owner == null && n.HasMeta( nameof( DebugDraw ) ) && !n.IsQueuedForDeletion() )
 					{
 						n.QueueFree();
 					}
@@ -89,20 +89,20 @@ public partial class DebugDrawEditor : EditorPlugin
 		}
 	}
 
-	void CreateNewNode(Node parent)
+	void CreateNewNode( Node parent )
 	{
 		RemovePrevNode();
-		if (DebugDraw.Instance == null)
+		if( DebugDraw.Instance == null )
 		{
 			FindViewportControl();
-			if (spatial_editor_viewport == null)
+			if( spatial_editor_viewport == null )
 			{
-				GD.PushWarning("DebugDrawEditor: Could not find 3D editor viewport.");
+				GD.PushWarning( "DebugDrawEditor: Could not find 3D editor viewport." );
 				return;
 			}
 
 			var d = new DebugDraw();
-			parent.AddChild(d);
+			parent.AddChild( d );
 
 			DebugDraw.CustomViewport = spatial_editor_viewport.GetViewport();
 			DebugDraw.CustomCanvas = spatial_editor_viewport;
@@ -112,14 +112,14 @@ public partial class DebugDrawEditor : EditorPlugin
 
 	void CreateAutoFind()
 	{
-		if (DebugDraw.Instance == null)
+		if( DebugDraw.Instance == null )
 		{
 			Node node = EditorInterface.Singleton?.GetEditedSceneRoot();
-			if (node != null)
-				CreateNewNode(node);
+			if( node != null )
+				CreateNewNode( node );
 		}
 	}
-		
-		    #endregion
+
+	#endregion
 }
 #endif
